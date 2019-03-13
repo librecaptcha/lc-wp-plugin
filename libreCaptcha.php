@@ -8,8 +8,6 @@ Author URI: https://github.com/rr83019
 Version: 0.1
 */
 
-global $lc_url;
-
 function libre_install(){
 	if(is_multisite()){
         wp_die('Libre-Captcha does not yet support WordPress MultiSite.');
@@ -34,8 +32,7 @@ function libreAPI($url, $data){
 	return $result;
 }
 
-function libre_captcha_id($level = "easy", $media = "image", $input_type = "text"){
-	global $lc_url;
+function libre_captcha_id($lc_url,$level = "easy", $media = "image", $input_type = "text"){
 	$captcha_data = array('level' => $level, 'media' => $media, 'input_type' => $input_type);
 	$get_data = libreAPI($lc_url.'/v1/captcha/', json_encode($captcha_data));
 	$response = json_decode($get_data, TRUE);
@@ -45,36 +42,38 @@ function libre_captcha_id($level = "easy", $media = "image", $input_type = "text
 		return -1;
 }
 
-function libre_get_media($id){
-	global $lc_url;
+function libre_get_media($id, $lc_url){
 	$media_data = array('id' => $id);
 	$image = libreAPI($lc_url.'/v1/media/', json_encode($media_data));
 	return $image;
 }
 
-function libre_get_answer($id, $answer){
-	global $lc_url;
+function libre_get_answer($id, $answer, $lc_url){
 	$answer_data = array('id' => $id, 'answer' => $answer);
 	$get_answer = libreAPI($lc_url.'/v1/answer/', json_encode($answer_data));
 	$answer = json_decode($get_answer, TRUE);
 	return $answer['result'];
 }
 
-function libre_set_lc_url(){
-	global $lc_url;
+function libre_get_lc_url(){
 	if(get_option('libre_url')){
 		$lc_url = get_option('libre_url');
 	} else {
 		$lc_url = 'http://localhost:8888';
 	}
+	return $lc_url;
 }
 
 function libre_captcha_html(){
-	global $lc_url;
-	libre_set_lc_url();
-	$id = libre_captcha_id();
+	$lc_url = libre_get_lc_url();
+	$id = libre_captcha_id($lc_url);
+	if(get_option('libre_url_visible') === '1'){
+		$img_tag = '<img id="captcha" src='.get_site_url(null, '?lc_id='.$id).'>';
+	} else {
+		$img_tag = '<img id="captcha" src="'.$lc_url.'/v1/media?id='.$id.'">';
+	}
 	$captcha_html = '<div id="LibreCaptcha">
-                     <img id="captcha" src="'.$lc_url.'/v1/media?id='.$id.'"><br>';
+                     '.$img_tag.'<br>';
 	$captcha_html .= '<input type="hidden" name="Libre_captcha_id" value='.$id.'>
                       <input type="text" name="Libre_captcha_answer"><br>
                       </div>';
@@ -82,12 +81,22 @@ function libre_captcha_html(){
 }
 
 function libre_check_captcha(){
+	$lc_url = libre_get_lc_url();
 	if(!empty($_POST['Libre_captcha_answer'])){
-		$validate = libre_get_answer($_POST['Libre_captcha_id'], $_POST['Libre_captcha_answer']);
+		$validate = libre_get_answer($_POST['Libre_captcha_id'], $_POST['Libre_captcha_answer'],$lc_url);
 		if($validate === "False")
 			wp_die("Captcha Incorrect");
 	} else {
 		wp_die('Captcha empty');
+	}
+}
+
+function libre_private_url(){
+	if(isset($_GET['lc_id'])){
+		$lc_url = libre_get_lc_url();
+		$id = $_GET['lc_id'];
+		$image = file_get_contents($lc_url.'/v1/media?id='.$id);
+		echo $image;
 	}
 }
 
@@ -125,6 +134,7 @@ function libre_url_visible(){
 
 register_activation_hook(__FILE__, 'libre_install');
 add_action('admin_menu','libre_admin_page');
+add_action('init','libre_private_url',5,0);
 add_filter('plugin_action_links_'.plugin_basename(__FILE__),'libre_settings_link');
 add_action('comment_form', 'libre_captcha_html', 10, 0);
 add_filter('pre_comment_approved', 'libre_check_captcha', 5, 0);
