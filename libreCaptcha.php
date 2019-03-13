@@ -55,7 +55,7 @@ function libre_get_answer($id, $answer, $lc_url){
 	return $answer['result'];
 }
 
-function libre_set_lc_url(){
+function libre_get_lc_url(){
 	if(get_option('libre_url')){
 		$lc_url = get_option('libre_url');
 	} else {
@@ -65,7 +65,7 @@ function libre_set_lc_url(){
 }
 
 function libre_captcha_html(){
-	$lc_url = libre_set_lc_url();
+	$lc_url = libre_get_lc_url();
 	$id = libre_captcha_id($lc_url);
 	if(get_option('libre_url_visible') === '1'){
 		$img_tag = '<img id="captcha" src='.get_site_url(null, '?lc_id='.$id).'>';
@@ -81,7 +81,7 @@ function libre_captcha_html(){
 }
 
 function libre_check_captcha(){
-	$lc_url = libre_set_lc_url();
+	$lc_url = libre_get_lc_url();
 	if(!empty($_POST['Libre_captcha_answer'])){
 		$validate = libre_get_answer($_POST['Libre_captcha_id'], $_POST['Libre_captcha_answer'],$lc_url);
 		if($validate === "False")
@@ -92,8 +92,8 @@ function libre_check_captcha(){
 }
 
 function libre_private_url(){
-	$lc_url = libre_set_lc_url();
 	if(isset($_GET['lc_id'])){
+		$lc_url = libre_get_lc_url();
 		$id = $_GET['lc_id'];
 		$image = file_get_contents($lc_url.'/v1/media?id='.$id);
 		echo $image;
